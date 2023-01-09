@@ -1,15 +1,14 @@
-mqtt_broker_ip   = "host"
-mqtt_broker_port = 1883
-#mqtt_broker_ip   = "host" # extern
-#mqtt_broker_port = 1883            # extern
-mqtt_broker_url  = "http://" + mqtt_broker_ip + ":" + str(mqtt_broker_port)
+#MQTT configuration
 mqtt_topic_prefix= "client/" 
 #mqtt_topic_prefix= "Server/" 
-
 broker_address="yourhost.myfritz.net" # this must match the CNAME in your server-cert!
 broker_port=8883
 
-#SSL / certificate
+#SSL / certificate from MQTT
 CA_crt     = "resources\CA.crt"
 client_crt = "resources\client.crt"
 client_key = "resources\client.key"
+
+# Download latest version from 'url' and save as 'fname'
+url = 'https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py'
+fname = 'c:/skripte/mca2.py'

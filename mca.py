@@ -18,21 +18,36 @@ import platform
 import GPUtil
 import os
 from datetime import datetime
-import subprocess 
+import subprocess  
 import ssl, inspect
-
-uname = platform.uname()
-rev = "20230109.203400"
-
-# declaration
+import math
+import requests, enlighten
 from config import *
 
+######################################################################################################################
+print (f"Download latest version from {url}.....")
+MANAGER = enlighten.get_manager()
+r = requests.get(url, stream = True)
+assert r.status_code == 200, r.status_code
+dlen = int(r.headers.get('Content-Length', '0')) or None
+
+with MANAGER.counter(color = 'green', total = dlen and math.ceil(dlen / 2 ** 20), unit = 'MiB', leave = False) as ctr, \
+     open(fname, 'wb', buffering = 2 ** 24) as f:
+    for chunk in r.iter_content(chunk_size = 2 ** 20):
+        print(chunk[-16:].hex().upper())
+        f.write(chunk)
+        ctr.update()
+print (f" ")
+######################################################################################################################
+uname = platform.uname()
+rev = "20230109.212600"
+
+# declaration
 mqtt_topic = mqtt_topic_prefix + uname.system + "/" + uname.node + "/" 
 global jsondata
 jsondata = ""
 
-
-
+print(f"Starting fetching information....")
 ######################################################################################################################
 # set präfix
 print(f"Get general information")
