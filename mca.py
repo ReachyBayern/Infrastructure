@@ -1,9 +1,9 @@
 ######################################################################################################################
 #  MQTT-Agent to collect information of computers which should be supported                                          #
 #                                                                                                                    #
-#  Data are swent to a MQTT-Broker how can take this informations for further processing                             #
+#  Data are sent to a MQTT-Broker who can take this informations for further processing                              #
 #                                                                                                                    #
-#  First part to bring data into SnipeIT withoutt direct connection to that system                                   #
+#  This is the first part to bring data into SnipeIT without direct connection to that system                        #
 ######################################################################################################################
 # Download current version with Windows: curl -o C:\Skripte\mca2.py https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py
 # Download current version with linux: wget -O /path/mca2.py https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py  
