@@ -5,6 +5,9 @@
 #                                                                                                                    #
 #  First part to bring data into SnipeIT withoutt direct connection to that system                                   #
 ######################################################################################################################
+# Download current version with Windows: curl -o C:\Skripte\mca2.py https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py
+# Download current version with linux: wget -O /path/mca2.py https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py  
+
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import sys
@@ -16,11 +19,10 @@ import GPUtil
 import os
 from datetime import datetime
 import subprocess 
-import paho.mqtt.client as mqtt
 import ssl, inspect
 
 uname = platform.uname()
-rev = "20230108.220101"
+rev = "20230109.203400"
 
 # declaration
 from config import *
