@@ -7,6 +7,10 @@
 ######################################################################################################################
 # Download current version with Windows: curl -o C:\Skripte\mca2.py https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py
 # Download current version with linux: wget -O /path/mca2.py https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py  
+# windows task planer action with minimized window:
+#  program: cmd
+#  argumnents: /c start /min C:\Users\info\AppData\Local\Microsoft\WindowsApps\python.exe C:\Users\path\mca.py
+#  execute in: C:\Users\path\
 
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
@@ -40,7 +44,7 @@ with MANAGER.counter(color = 'green', total = dlen and math.ceil(dlen / 2 ** 20)
 print (f" ")
 ######################################################################################################################
 uname = platform.uname()
-rev = "20230109.212600"
+rev = "20230109.225400"
 
 # declaration
 mqtt_topic = mqtt_topic_prefix + uname.system + "/" + uname.node + "/" 
