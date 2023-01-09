@@ -57,10 +57,11 @@ print(f"Starting fetching information....")
 print(f"Get general information")
 jsondata  = '{ "d": {'
 # open section Sys Info
-if uname.version[0:7] == '10.0.22': # Windows 11 is just a second build, no separate version
+if uname.version[0:7] == '10.0.22' and uname.system == 'Windows': # Windows 11 is just a second build, no separate version
     operatingsystem ="11"
 else:
-    operatingsystem = uname.release    
+    operatingsystem = uname.release   
+print(f"{operatingsystem}")     
 jsondata += '"SYSINFO": {'
 jsondata += '"hostname":"'              + str(uname.node)                            +  '"' 
 jsondata += ',"system":"'               + str(uname.system)                          +  '"'
