@@ -12,6 +12,8 @@
 #  argumnents: /c start /min C:\Users\info\AppData\Local\Microsoft\WindowsApps\python.exe C:\Users\path\mca.py
 #  execute in: C:\Users\path\
 
+mqtt_alias = ""
+
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import sys
@@ -29,25 +31,29 @@ import requests, enlighten
 from config import *
 
 ######################################################################################################################
-print (f"Download latest version from {url}.....")
-MANAGER = enlighten.get_manager()
-r = requests.get(url, stream = True)
-assert r.status_code == 200, r.status_code
-dlen = int(r.headers.get('Content-Length', '0')) or None
+download = True
+if download == True:
+    print (f"Download latest version from {url}.....")
+    MANAGER = enlighten.get_manager()
+    r = requests.get(url, stream = True)
+    assert r.status_code == 200, r.status_code
+    dlen = int(r.headers.get('Content-Length', '0')) or None
 
-with MANAGER.counter(color = 'green', total = dlen and math.ceil(dlen / 2 ** 20), unit = 'MiB', leave = False) as ctr, \
-     open(fname, 'wb', buffering = 2 ** 24) as f:
-    for chunk in r.iter_content(chunk_size = 2 ** 20):
-        print(chunk[-16:].hex().upper())
-        f.write(chunk)
-        ctr.update()
-print (f" ")
+    with MANAGER.counter(color = 'green', total = dlen and math.ceil(dlen / 2 ** 20), unit = 'MiB', leave = False) as ctr, \
+        open(fname, 'wb', buffering = 2 ** 24) as f:
+        for chunk in r.iter_content(chunk_size = 2 ** 20):
+            print(chunk[-16:].hex().upper())
+            f.write(chunk)
+            ctr.update()
+    print (f" ")
 ######################################################################################################################
 uname = platform.uname()
 rev = "20230109.225400"
 
 # declaration
-mqtt_topic = mqtt_topic_prefix + uname.system + "/" + uname.node + "/" 
+if len(mqtt_alias) == 0:
+    mqtt_alias=uname.node
+mqtt_topic = mqtt_topic_prefix + uname.system + "/" + mqtt_alias + "/" 
 global jsondata
 jsondata = ""
 

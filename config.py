@@ -3,6 +3,7 @@ mqtt_topic_prefix= "client/"
 #mqtt_topic_prefix= "Server/" 
 broker_address="yourhost.myfritz.net" # this must match the CNAME in your server-cert!
 broker_port=8883
+mqtt_alias= "alias-topic-name"
 
 #SSL / certificate from MQTT
 CA_crt     = "resources\CA.crt"
