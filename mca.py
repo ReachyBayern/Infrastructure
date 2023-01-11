@@ -16,7 +16,7 @@
 mqtt_alias = ""
 download = True
 noUser = False
-username = "not known"
+username = ""
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import sys
@@ -44,8 +44,8 @@ for eachArg in sys.argv:
 if noUser == False:
     try:
         username = str(os.getlogin())
-    except PermissionError:
-        print("Permission error during determination of the username!")
+    except:
+        print("Error! please use option: noUser")
     finally:
         print(f"username={username}")
 
