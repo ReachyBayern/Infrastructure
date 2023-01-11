@@ -11,9 +11,12 @@
 #  program: cmd
 #  argumnents: /c start /min C:\Users\info\AppData\Local\Microsoft\WindowsApps\python.exe C:\Users\path\mca.py
 #  execute in: C:\Users\path\
+# arguments:
 
 mqtt_alias = ""
-
+download = True
+noUser = False
+username = "not known"
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import sys
@@ -30,8 +33,25 @@ import math
 import requests, enlighten
 from config import *
 
+for eachArg in sys.argv:  
+    if eachArg == 'dl=true' or eachArg == 'True':
+        download = True
+    if eachArg == 'dl=false' or eachArg == 'False':
+        download = False     
+    if eachArg == 'nouser' or eachArg == 'noUser':   
+        noUser = True
+
+if noUser == False:
+    try:
+        username = str(os.getlogin())
+    except PermissionError:
+        print("Permission error during determination of the username!")
+    finally:
+        print(f"username={username}")
+
+
 ######################################################################################################################
-download = True
+
 if download == True:
     print (f"Download latest version from {url}.....")
     MANAGER = enlighten.get_manager()
@@ -76,7 +96,7 @@ jsondata += ',"os":"'                   + str(uname.system)                     
 jsondata += ',"version":"'              + str(uname.version)                         +  '"'
 jsondata += ',"machine":"'              + str(uname.machine)                         +  '"'
 jsondata += ',"processor":"'            + str(uname.processor)                       +  '"'
-jsondata += ',"currentUser":"'          + str(os.getlogin())                         +  '"'
+jsondata += ',"currentUser":"'          + str(username)                              +  '"'
 jsondata += ',"revision":"'             + str(rev)                                   +  '"'
 
 boot_time_timestamp = psutil.boot_time()

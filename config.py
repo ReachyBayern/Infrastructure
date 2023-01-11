@@ -9,6 +9,7 @@ mqtt_alias= "alias-topic-name"
 CA_crt     = "resources\CA.crt"
 client_crt = "resources\client.crt"
 client_key = "resources\client.key"
+download = True
 
 # Download latest version from 'url' and save as 'fname'
 url = 'https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py'
