@@ -11,7 +11,10 @@
 #  program: cmd
 #  argumnents: /c start /min C:\Users\info\AppData\Local\Microsoft\WindowsApps\python.exe C:\Users\path\mca.py
 #  execute in: C:\Users\path\
-# arguments:
+#
+# arguments: 
+#  noUser           = no user will be determind. On Synology in taskplaner it doesn't work
+#  dl=true/false    = no download of current version from github. overrides config!
 
 mqtt_alias = ""
 download = True
