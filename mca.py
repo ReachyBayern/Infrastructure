@@ -71,7 +71,7 @@ if download == True:
     print (f" ")
 ######################################################################################################################
 uname = platform.uname()
-rev = "20230109.225400"
+rev = "20230112.234800"
 
 # declaration
 if len(mqtt_alias) == 0:
@@ -298,12 +298,13 @@ client.connect( broker_address, broker_port, 60 )
 client.loop_start()
 
 print( "Subscribing to topic", mqtt_topic )
+#on_message.retain=True
 client.on_message=on_message
 client.subscribe( mqtt_topic )
 
 for i in range( 1, 2 ):
     #print( jsondata , mqtt_topic )
-    client.publish( mqtt_topic, jsondata )
+    client.publish( mqtt_topic, jsondata, 0, True )
     time.sleep( 1 )
 
 client.loop_stop()
