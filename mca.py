@@ -16,10 +16,12 @@
 #  noUser           = no user will be determind. On Synology in taskplaner it doesn't work
 #  dl=true/false    = no download of current version from github. overrides config!
 
-mqtt_alias = ""
-download = True
-noUser = False
-username = ""
+mqtt_alias      = ""
+download        = True
+noUser          = False
+username        = ""
+runAsService    = False
+loopDuration    = 1
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import sys
@@ -34,7 +36,46 @@ import subprocess
 import ssl, inspect
 import math
 import requests, enlighten
-from config import *
+from pathlib import Path
+import configparser
+from tqdm import tqdm
+#from config import *
+folder = os.getcwd()
+
+# read config if file exists
+config_file = Path(folder + "\config.ini")
+if config_file.is_file():
+    config = configparser.ConfigParser()		
+    config.read(config_file)
+    conf_mqtt           = config['MQTT']
+    conf_ssl            = config['SSL']
+    #conf_dl             = config['DOWNLOAD']
+    #conf_gen            = config['GENERAL']
+
+    #[MQTT]
+    broker_address      = conf_mqtt['broker_address']
+    broker_port         = int(conf_mqtt['broker_port'])
+    #mqtt_topic_prefix   = conf_mqtt['mqtt_topic_prefix']
+    #mqtt_alias          = conf_mqtt['mqtt_alias']
+    #[SSL] 
+    CA_crt              = conf_ssl['CA_crt']
+    client_crt          = conf_ssl['client_crt']
+    client_key          = conf_ssl['client_key']
+    #[DOWNLOAD]
+    #url                 = conf_dl['url']
+    #fname               = conf_dl['fname']
+    #download            = conf_dl['download']
+    #[GENERAL]
+    #runAsService        = conf_gen['runAsService']
+    #if runAsService == 'True' or runAsService == 'true':
+    #    loopDuration        = int(conf_gen['loopDuration'])
+       
+    #print(f"MQTT-Host = {conf_mqtt['broker_address']}")
+    #print(f"MQTT-Topic = {conf_mqtt['mqtt_topic_prefix']}")
+    #print(f"MQTT-Port = {conf_mqtt['broker_port']}")
+    #print(f"MQTT-Alias = {conf_mqtt['mqtt_alias']}")
+else:
+    print(f'config.ini is missing. Please add a config.ini!! Default values are set')    
 
 for eachArg in sys.argv:  
     if eachArg == 'dl=true' or eachArg == 'True':
@@ -53,237 +94,6 @@ if noUser == False:
         print(f"username={username}")
 
 
-######################################################################################################################
-
-if download == True:
-    print (f"Download latest version from {url}.....")
-    MANAGER = enlighten.get_manager()
-    r = requests.get(url, stream = True)
-    assert r.status_code == 200, r.status_code
-    dlen = int(r.headers.get('Content-Length', '0')) or None
-
-    with MANAGER.counter(color = 'green', total = dlen and math.ceil(dlen / 2 ** 20), unit = 'MiB', leave = False) as ctr, \
-        open(fname, 'wb', buffering = 2 ** 24) as f:
-        for chunk in r.iter_content(chunk_size = 2 ** 20):
-            print(chunk[-16:].hex().upper())
-            f.write(chunk)
-            ctr.update()
-    print (f" ")
-######################################################################################################################
-uname = platform.uname()
-rev = "20230112.234800"
-
-# declaration
-if len(mqtt_alias) == 0:
-    mqtt_alias=uname.node
-mqtt_topic = mqtt_topic_prefix + uname.system + "/" + mqtt_alias + "/" 
-global jsondata
-jsondata = ""
-
-print(f"Starting fetching information....")
-######################################################################################################################
-# set präfix
-print(f"Get general information")
-jsondata  = '{ "d": {'
-# open section Sys Info
-if uname.version[0:7] == '10.0.22' and uname.system == 'Windows': # Windows 11 is just a second build, no separate version
-    operatingsystem ="11"
-else:
-    operatingsystem = uname.release   
-print(f"{operatingsystem}")     
-jsondata += '"SYSINFO": {'
-jsondata += '"hostname":"'              + str(uname.node)                            +  '"' 
-jsondata += ',"system":"'               + str(uname.system)                          +  '"'
-jsondata += ',"release":"'              + str(operatingsystem)                       +  '"'
-jsondata += ',"os":"'                   + str(uname.system)                          +  ' '  + operatingsystem + '"'
-jsondata += ',"version":"'              + str(uname.version)                         +  '"'
-jsondata += ',"machine":"'              + str(uname.machine)                         +  '"'
-jsondata += ',"processor":"'            + str(uname.processor)                       +  '"'
-jsondata += ',"currentUser":"'          + str(username)                              +  '"'
-jsondata += ',"revision":"'             + str(rev)                                   +  '"'
-
-boot_time_timestamp = psutil.boot_time()
-bt = datetime.fromtimestamp(boot_time_timestamp)
-jsondata += ',"bootTime":"'            + str(bt)                                     +  '"'
-jsondata += ' } ' 
-# close section Sys Info  
-######################################################################################################################
-# open section CPU
-print(f"Get CPU information")
-jsondata += ',"CPU": {'
-jsondata += '"actualCores":"'         + str(psutil.cpu_count(logical=False))         +  '"'
-jsondata += ',"logicalCores":"'        + str(psutil.cpu_count(logical=True))         +  '"'
-jsondata += ',"maxFrequency":"'        + str(psutil.cpu_freq().max)                  +  'MHz"'
-jsondata += ',"currentFrequency":"'    + str(psutil.cpu_freq().current)              +  'MHz"'
-jsondata += ',"cpuUsage":"'            + str(psutil.cpu_percent())                   +  '%"'
-for i, perc in enumerate(psutil.cpu_percent(percpu=True, interval=1)):
-    jsondata += ',"Core ' + str(i) + '":"'            + str(perc)                    +  '%"'
-jsondata += ' } ' 
-# close section CPU
-######################################################################################################################
-# open section RAM
-print(f"Get RAM information")
-def adjust_size(size):
-    factor = 1024
-    for i in ["B", "KB", "MB", "GB", "TB"]:
-        if size > factor:
-            size = size / factor
-        else:
-            return f"{size:.3f}{i}"
-virtual_mem = psutil.virtual_memory()
-jsondata += ',"RAM": {'
-jsondata += '"totalRam":"'               + str(adjust_size(virtual_mem.total))      +  '"'
-jsondata += ',"availableRam":"'          + str(adjust_size(virtual_mem.available))  +  '"'
-jsondata += ',"usedRam":"'               + str(adjust_size(virtual_mem.used))       +  '"'
-jsondata += ',"percentageRam":"'         + str(virtual_mem.percent)                 +  '%"'
-jsondata += ' } ' 
-# close section RAM
-######################################################################################################################
-# open section SWAP
-print(f"Get SWAP information")
-swap = psutil.swap_memory()
-jsondata += ',"SWAP": {'
-jsondata += '"totalSwap":"'              + str(adjust_size(swap.total))             +  '"'
-jsondata += ',"freeSwap":"'              + str(adjust_size(swap.free))              +  '"'
-jsondata += ',"usedSwap":"'              + str(adjust_size(swap.used))              +  '"'
-jsondata += ',"percentageSwap":"'        + str(swap.percent)                        +  '%"'
-jsondata += ' } ' 
-# close section SWAP
-######################################################################################################################
-# open section DISK
-print(f"Get DISK information")
-partitions = psutil.disk_partitions()
-jsondata += ',"DISK": {'
-for p in partitions:
-    #lw = str(p.device).replace('\\','')
-    jsondata += '"' + str(p.device).replace('\\','') + '": {'
-    jsondata += '"fileSystemType":"'             + str(p.fstype)                              +  '"'
-    try:
-        partition_usage = psutil.disk_usage(p.mountpoint)
-    except PermissionError:
-        continue
-    finally:
-        jsondata += ',"totalSize":"'                 + str(adjust_size(partition_usage.total))    +  '"'
-        jsondata += ',"usedSize":"'                  + str(adjust_size(partition_usage.used))     +  '"'
-        jsondata += ',"freeSize":"'                  + str(adjust_size(partition_usage.free))     +  '"'
-        jsondata += ',"percentageSize":"'            + str(partition_usage.percent)  +  '%"'
-        jsondata += ' } ,'     
-jsondata = jsondata.strip(',') + "} "  
-# close section DISK
-######################################################################################################################
-# open section GPU
-print(f"Get GPU information")
-jsondata += ',"GPU": {'
-gpus = GPUtil.getGPUs()
-for gpu in gpus:
-    print(f"ID: {gpu.id}, Name: {gpu.name}")
-    jsondata += '"' + str(gpu.id) + '": {'
-    jsondata += '"load":"'                      + str(gpu.load*100)                         +  '%"'
-    jsondata += ',"freeMem":"'                  + str(uname.gpu.memoryFree)                 +  'MB"'
-    jsondata += ',"usedMem":"'                  + str(uname.gpu.memoryUsed)                 +  'MB"'
-    jsondata += ',"totalMem":"'                 + str(uname.gpu.memoryTotal)                +  'MB"'
-    jsondata += ',"temperature":"'              + str(uname.gpu.temperature)                +  '°C"'
-    jsondata += ' } ,'
-#jsondata = outStr = jsondata[:len(jsondata)-1] + '} '
-jsondata = jsondata.strip(',') + "} "      
-# close section GPU
-######################################################################################################################
-# open section NETWORK
-print(f"Get network information")
-jsondata += ',"NETWORK": {'
-if_addrs = psutil.net_if_addrs()
-for interface_name, interface_addresses in if_addrs.items():
-    #jsondata += '"' + str(interface_name) + '": {'
-    for address in interface_addresses:
-#         jsondata += '"' + str(interface_name) + '": {'
-         if str(address.family) == 'AddressFamily.AF_INET':
-             jsondata += '"' + str(interface_name) + '": {'
-             jsondata += '"ipAddress":"'        + str(address.address)                       +  '"'
-             jsondata += ',"netmask":"'         + str(address.netmask)                       +  '"'
-             jsondata += ',"broadcastIp":"'    + str(address.broadcast)                     +  '"'
-             if psutil.net_if_addrs()[interface_name][0].address:
-                mac = str(psutil.net_if_addrs()[interface_name][0].address)
-                if mac.find("-",1) >= 0:
-                    jsondata += ',"macAddress":"'  + str(mac)                               +  '"'    
-             jsondata += ' } ,'
-         elif str(address.family) == 'AddressFamily.AF_PACKET':
-             jsondata += '"' + str(interface_name) + '": {'
-             jsondata += '"macaddress":"'       + str(address.address)                       +  '"'
-             jsondata += ',"netmask":"'         + str(address.netmask)                       +  '"'
-             jsondata += ',"broadcastMac":"'    + str(address.broadcast)                     +  '"'
-             jsondata += ' } ,'
-    #jsondata += ' } ,'         
-net_io = psutil.net_io_counters()
-jsondata += '"totalByteSent":"'                 + str(adjust_size(net_io.bytes_sent))        +  '"'
-jsondata += ',"totalBytesReceived":"'           + str(adjust_size(net_io.bytes_recv))        +  '"'
-jsondata = jsondata.strip(',') + "} "  
-# close section NETWORK
-######################################################################################################################
-# open section installed programs
-print(f"Get installed programs")
-count = 0
-jsondata += ',"PROGRAM": {'
-if uname.system == 'Windows':
-    Data = subprocess.check_output(['wmic', 'product', 'get', 'name']) 
-    a = str(Data) 
-    try: 
-        for i in range(len(a)):
-            prog = str(a.split("\\r\\r\\n")[6:][i]).replace('\\','-').strip(' ')
-            if len(prog) > 1:
-                if len(prog.replace(' ','')) > 0: # eleminate only BLANKS in the program name
-                    count += 1
-                    print(f"prog-ID{count}: {prog}")
-                jsondata += '"progID-' + str(count) + '":"'       + str(prog)                       +  '",' 
-    except IndexError as e: 
-        print("Done")
-jsondata = jsondata.strip(',') + "}, " 
-# close section installed programs
-######################################################################################################################
-# open section
-jsondata += '"BLUESCREENS": {'
-if uname.system == 'Windows':
-    try:
-        for (root,dirs,files) in os.walk('C:\Windows\Minidump/'):
-            print("Root:" + str(root))
-            #print("Verzeichnisse: " + str(dirs))
-            print("Dateien: " + str(files))
-        #print(*files, sep=", ")    
-        index=0
-        if 'files' in locals():
-            for file in files:
-                print(f"{files[index]}")
-                jsondata += '"ID-' + str(index) + '":"'        + str(files[index])                       +  '",'
-                index += 1
-    except IndexError as e: 
-        print("")
-jsondata = jsondata.strip(',') + "}, " 
-# close section
-
-
-######################################################################################################################
-# open section
-#jsondata += '"PROGRAM": {'
-#  jsondata += '"' + str(interface_name) + '": {'
-#  jsondata += ',"totalBytesReceived":"'           + str(adjust_size(net_io.bytes_recv))        +  '"'
-#  jsondata += ' } ,'
-#jsondata = jsondata.strip(',') + "}, " 
-# close section
-######################################################################################################################    
-
-
-# close jsondata
-now = datetime.now() 
-jsondata += '"executionTime":"' + now.strftime("%d.%m.%Y %H:%M:%S") + '"} }'
-#jsondata = jsondata.strip(',') + "} }"
-
-######################################################################################################################    
-
-# send data via MQTT
-#publish.single(mqtt_topic, payload=jsondata, qos=0, retain=False, hostname=mqtt_broker_ip,
-#  port=mqtt_broker_port, client_id="", keepalive=60, will=None, auth=None, tls=None,
-#  protocol=mqtt.MQTTv311, transport="tcp")
-
-
 def on_message(client, userdata, message):
     print("message received "   + str(message.payload.decode("utf-8")))
     print("message topic="      + str(message.topic))
@@ -297,15 +107,271 @@ client.tls_insecure_set(False)
 client.connect( broker_address, broker_port, 60 )
 client.loop_start()
 
-print( "Subscribing to topic", mqtt_topic )
-#on_message.retain=True
-client.on_message=on_message
-client.subscribe( mqtt_topic )
+######################################################################################################################
+c = 0 # counter for everlasting loop
+#for c in range ( 0, 2 ):
+while c < 1:
+    config.read(config_file)
+    conf_mqtt           = config['MQTT']
+    conf_dl             = config['DOWNLOAD']
+    conf_gen            = config['GENERAL']
+    #[MQTT]
+    mqtt_topic_prefix   = conf_mqtt['mqtt_topic_prefix']
+    mqtt_alias          = conf_mqtt['mqtt_alias']
+    #[DOWNLOAD]
+    url                 = conf_dl['url']
+    fname               = conf_dl['fname'] # folder
+    download            = conf_dl['download']    
+    #[GENERAL]
+    runAsService        = conf_gen['runAsService']
+    loopDuration        = int(conf_gen['loopDuration'])
 
-for i in range( 1, 2 ):
-    #print( jsondata , mqtt_topic )
+    if download == True:
+        print (f"Download latest version from {url}.....")
+        MANAGER = enlighten.get_manager()
+        r = requests.get(url, stream = True)
+        assert r.status_code == 200, r.status_code
+        dlen = int(r.headers.get('Content-Length', '0')) or None
+
+        with MANAGER.counter(color = 'green', total = dlen and math.ceil(dlen / 2 ** 20), unit = 'MiB', leave = False) as ctr, \
+            open(fname, 'wb', buffering = 2 ** 24) as f:
+            for chunk in r.iter_content(chunk_size = 2 ** 20):
+                print(chunk[-16:].hex().upper())
+                f.write(chunk)
+                ctr.update()
+        print (f" ")
+    ######################################################################################################################
+    uname = platform.uname()
+    rev = "20230112.234800"
+
+    # declaration
+    if len(mqtt_alias) == 0:
+        mqtt_alias=uname.node
+    mqtt_topic = mqtt_topic_prefix + uname.system + "/" + mqtt_alias + "/" 
+    global jsondata
+    jsondata = ""
+
+    print(f"Starting fetching information....")
+    ######################################################################################################################
+    # set präfix
+    print(f"Get general information")
+    jsondata  = '{ "d": {'
+    # open section Sys Info
+    if uname.version[0:7] == '10.0.22' and uname.system == 'Windows': # Windows 11 is just a second build, no separate version
+        operatingsystem ="11"
+    else:
+        operatingsystem = uname.release   
+    print(f"{operatingsystem}")     
+    jsondata += '"SYSINFO": {'
+    jsondata += '"hostname":"'              + str(uname.node)                            +  '"' 
+    jsondata += ',"system":"'               + str(uname.system)                          +  '"'
+    jsondata += ',"release":"'              + str(operatingsystem)                       +  '"'
+    jsondata += ',"os":"'                   + str(uname.system)                          +  ' '  + operatingsystem + '"'
+    jsondata += ',"version":"'              + str(uname.version)                         +  '"'
+    jsondata += ',"machine":"'              + str(uname.machine)                         +  '"'
+    jsondata += ',"processor":"'            + str(uname.processor)                       +  '"'
+    jsondata += ',"currentUser":"'          + str(username)                              +  '"'
+    jsondata += ',"revision":"'             + str(rev)                                   +  '"'
+
+    boot_time_timestamp = psutil.boot_time()
+    bt = datetime.fromtimestamp(boot_time_timestamp)
+    jsondata += ',"bootTime":"'            + str(bt)                                     +  '"'
+    jsondata += ' } ' 
+    # close section Sys Info  
+    ######################################################################################################################
+    # open section CPU
+    print(f"Get CPU information")
+    jsondata += ',"CPU": {'
+    jsondata += '"actualCores":"'         + str(psutil.cpu_count(logical=False))         +  '"'
+    jsondata += ',"logicalCores":"'        + str(psutil.cpu_count(logical=True))         +  '"'
+    jsondata += ',"maxFrequency":"'        + str(psutil.cpu_freq().max)                  +  'MHz"'
+    jsondata += ',"currentFrequency":"'    + str(psutil.cpu_freq().current)              +  'MHz"'
+    jsondata += ',"cpuUsage":"'            + str(psutil.cpu_percent())                   +  '%"'
+    for i, perc in enumerate(psutil.cpu_percent(percpu=True, interval=1)):
+        jsondata += ',"Core ' + str(i) + '":"'            + str(perc)                    +  '%"'
+    jsondata += ' } ' 
+    # close section CPU
+    ######################################################################################################################
+    # open section RAM
+    print(f"Get RAM information")
+    def adjust_size(size):
+        factor = 1024
+        for i in ["B", "KB", "MB", "GB", "TB"]:
+            if size > factor:
+                size = size / factor
+            else:
+                return f"{size:.3f}{i}"
+    virtual_mem = psutil.virtual_memory()
+    jsondata += ',"RAM": {'
+    jsondata += '"totalRam":"'               + str(adjust_size(virtual_mem.total))      +  '"'
+    jsondata += ',"availableRam":"'          + str(adjust_size(virtual_mem.available))  +  '"'
+    jsondata += ',"usedRam":"'               + str(adjust_size(virtual_mem.used))       +  '"'
+    jsondata += ',"percentageRam":"'         + str(virtual_mem.percent)                 +  '%"'
+    jsondata += ' } ' 
+    # close section RAM
+    ######################################################################################################################
+    # open section SWAP
+    print(f"Get SWAP information")
+    swap = psutil.swap_memory()
+    jsondata += ',"SWAP": {'
+    jsondata += '"totalSwap":"'              + str(adjust_size(swap.total))             +  '"'
+    jsondata += ',"freeSwap":"'              + str(adjust_size(swap.free))              +  '"'
+    jsondata += ',"usedSwap":"'              + str(adjust_size(swap.used))              +  '"'
+    jsondata += ',"percentageSwap":"'        + str(swap.percent)                        +  '%"'
+    jsondata += ' } ' 
+    # close section SWAP
+    ######################################################################################################################
+    # open section DISK
+    print(f"Get DISK information")
+    partitions = psutil.disk_partitions()
+    jsondata += ',"DISK": {'
+    for p in partitions:
+        #lw = str(p.device).replace('\\','')
+        jsondata += '"' + str(p.device).replace('\\','') + '": {'
+        jsondata += '"fileSystemType":"'             + str(p.fstype)                              +  '"'
+        try:
+            partition_usage = psutil.disk_usage(p.mountpoint)
+        except PermissionError:
+            continue
+        finally:
+            jsondata += ',"totalSize":"'                 + str(adjust_size(partition_usage.total))    +  '"'
+            jsondata += ',"usedSize":"'                  + str(adjust_size(partition_usage.used))     +  '"'
+            jsondata += ',"freeSize":"'                  + str(adjust_size(partition_usage.free))     +  '"'
+            jsondata += ',"percentageSize":"'            + str(partition_usage.percent)  +  '%"'
+            jsondata += ' } ,'     
+    jsondata = jsondata.strip(',') + "} "  
+    # close section DISK
+    ######################################################################################################################
+    # open section GPU
+    print(f"Get GPU information")
+    jsondata += ',"GPU": {'
+    gpus = GPUtil.getGPUs()
+    for gpu in gpus:
+        print(f"ID: {gpu.id}, Name: {gpu.name}")
+        jsondata += '"' + str(gpu.id) + '": {'
+        jsondata += '"load":"'                      + str(gpu.load*100)                         +  '%"'
+        jsondata += ',"freeMem":"'                  + str(uname.gpu.memoryFree)                 +  'MB"'
+        jsondata += ',"usedMem":"'                  + str(uname.gpu.memoryUsed)                 +  'MB"'
+        jsondata += ',"totalMem":"'                 + str(uname.gpu.memoryTotal)                +  'MB"'
+        jsondata += ',"temperature":"'              + str(uname.gpu.temperature)                +  '°C"'
+        jsondata += ' } ,'
+    #jsondata = outStr = jsondata[:len(jsondata)-1] + '} '
+    jsondata = jsondata.strip(',') + "} "      
+    # close section GPU
+    ######################################################################################################################
+    # open section NETWORK
+    print(f"Get network information")
+    jsondata += ',"NETWORK": {'
+    if_addrs = psutil.net_if_addrs()
+    for interface_name, interface_addresses in if_addrs.items():
+        #jsondata += '"' + str(interface_name) + '": {'
+        for address in interface_addresses:
+    #         jsondata += '"' + str(interface_name) + '": {'
+            if str(address.family) == 'AddressFamily.AF_INET':
+                jsondata += '"' + str(interface_name) + '": {'
+                jsondata += '"ipAddress":"'        + str(address.address)                       +  '"'
+                jsondata += ',"netmask":"'         + str(address.netmask)                       +  '"'
+                jsondata += ',"broadcastIp":"'    + str(address.broadcast)                     +  '"'
+                if psutil.net_if_addrs()[interface_name][0].address:
+                    mac = str(psutil.net_if_addrs()[interface_name][0].address)
+                    if mac.find("-",1) >= 0:
+                        jsondata += ',"macAddress":"'  + str(mac)                               +  '"'    
+                jsondata += ' } ,'
+            elif str(address.family) == 'AddressFamily.AF_PACKET':
+                jsondata += '"' + str(interface_name) + '": {'
+                jsondata += '"macaddress":"'       + str(address.address)                       +  '"'
+                jsondata += ',"netmask":"'         + str(address.netmask)                       +  '"'
+                jsondata += ',"broadcastMac":"'    + str(address.broadcast)                     +  '"'
+                jsondata += ' } ,'
+        #jsondata += ' } ,'         
+    net_io = psutil.net_io_counters()
+    jsondata += '"totalByteSent":"'                 + str(adjust_size(net_io.bytes_sent))        +  '"'
+    jsondata += ',"totalBytesReceived":"'           + str(adjust_size(net_io.bytes_recv))        +  '"'
+    jsondata = jsondata.strip(',') + "} "  
+    # close section NETWORK
+    ######################################################################################################################
+    # open section installed programs
+    print(f"Get installed programs")
+    count = 0
+    jsondata += ',"PROGRAM": {'
+    if uname.system == 'Windows':
+        Data = subprocess.check_output(['wmic', 'product', 'get', 'name']) 
+        a = str(Data) 
+        try: 
+            for i in range(len(a)):
+                prog = str(a.split("\\r\\r\\n")[6:][i]).replace('\\','-').strip(' ')
+                if len(prog) > 1:
+                    if len(prog.replace(' ','')) > 0: # eleminate only BLANKS in the program name
+                        count += 1
+                        print(f"prog-ID{count}: {prog}")
+                    jsondata += '"progID-' + str(count) + '":"'       + str(prog)                       +  '",' 
+        except IndexError as e: 
+            print("Done")
+    jsondata = jsondata.strip(',') + "}, " 
+    # close section installed programs
+    ######################################################################################################################
+    # open section
+    jsondata += '"BLUESCREENS": {'
+    if uname.system == 'Windows':
+        try:
+            for (root,dirs,files) in os.walk('C:\Windows\Minidump/'):
+                print("Root:" + str(root))
+                #print("Verzeichnisse: " + str(dirs))
+                print("Dateien: " + str(files))
+            #print(*files, sep=", ")    
+            index=0
+            if 'files' in locals():
+                for file in files:
+                    print(f"{files[index]}")
+                    jsondata += '"ID-' + str(index) + '":"'        + str(files[index])                       +  '",'
+                    index += 1
+        except IndexError as e: 
+            print("")
+    jsondata = jsondata.strip(',') + "}, " 
+    # close section
+
+
+    ######################################################################################################################
+    # open section
+    #jsondata += '"PROGRAM": {'
+    #  jsondata += '"' + str(interface_name) + '": {'
+    #  jsondata += ',"totalBytesReceived":"'           + str(adjust_size(net_io.bytes_recv))        +  '"'
+    #  jsondata += ' } ,'
+    #jsondata = jsondata.strip(',') + "}, " 
+    # close section
+    ######################################################################################################################    
+
+
+    # close jsondata
+    now = datetime.now() 
+    jsondata += '"executionTime":"' + now.strftime("%d.%m.%Y %H:%M:%S") + '"} }'
+    #jsondata = jsondata.strip(',') + "} }"
+
+    ######################################################################################################################    
+
+    # send data via MQTT
+    #publish.single(mqtt_topic, payload=jsondata, qos=0, retain=False, hostname=mqtt_broker_ip,
+    #  port=mqtt_broker_port, client_id="", keepalive=60, will=None, auth=None, tls=None,
+    #  protocol=mqtt.MQTTv311, transport="tcp")
+
+    print( "Subscribing to topic", mqtt_topic )
+    #on_message.retain=True
+    client.on_message=on_message
+    client.subscribe( mqtt_topic )
+
+    #for i in range( 1, 2 ):
+        #print( jsondata , mqtt_topic )
     client.publish( mqtt_topic, jsondata, 0, True )
     time.sleep( 1 )
+    if runAsService == 'True' or runAsService == 'true':
+        c = 0
+        print (f"Counter = {c}, runAsService = {runAsService}")
+        print (f"Waiting for {loopDuration} seconds......")
+        for i in tqdm(range(loopDuration)):
+            time.sleep( 1 )
+    else:
+        c += 1
+        time.sleep( 1 )    
 
 client.loop_stop()
 
