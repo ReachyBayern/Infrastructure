@@ -41,39 +41,45 @@ import configparser
 from tqdm import tqdm
 #from config import *
 folder = os.getcwd()
-
+uname = platform.uname()
+print(f"Current Path = {folder}")
 # read config if file exists
-config_file = Path(folder + "\config.ini")
+if uname.system == 'Windows':
+    config_file = Path(folder  + "\config.ini") 
+else:
+    config_file = Path(folder  + "/config.ini") # linux needs "/" and Synology needs complete path!    
+
+#config_file = "/volume1/SmartHome/Tools/Enpoint-Communication-Agent/config.ini" # linux needs "/" and Synology needs complete path!
+
 if config_file.is_file():
     config = configparser.ConfigParser()		
     config.read(config_file)
     conf_mqtt           = config['MQTT']
     conf_ssl            = config['SSL']
-    #conf_dl             = config['DOWNLOAD']
-    #conf_gen            = config['GENERAL']
+    conf_dl             = config['DOWNLOAD']
+    conf_gen            = config['GENERAL']
 
     #[MQTT]
     broker_address      = conf_mqtt['broker_address']
     broker_port         = int(conf_mqtt['broker_port'])
-    #mqtt_topic_prefix   = conf_mqtt['mqtt_topic_prefix']
-    #mqtt_alias          = conf_mqtt['mqtt_alias']
+    mqtt_topic_prefix   = conf_mqtt['mqtt_topic_prefix']
+    mqtt_alias          = conf_mqtt['mqtt_alias']
     #[SSL] 
     CA_crt              = conf_ssl['CA_crt']
     client_crt          = conf_ssl['client_crt']
     client_key          = conf_ssl['client_key']
     #[DOWNLOAD]
-    #url                 = conf_dl['url']
-    #fname               = conf_dl['fname']
-    #download            = conf_dl['download']
+    url                 = conf_dl['url']
+    fname               = conf_dl['fname']
+    download            = conf_dl['download']
     #[GENERAL]
-    #runAsService        = conf_gen['runAsService']
-    #if runAsService == 'True' or runAsService == 'true':
-    #    loopDuration        = int(conf_gen['loopDuration'])
+    runAsService        = conf_gen['runAsService']
+    loopDuration        = int(conf_gen['loopDuration'])
        
-    #print(f"MQTT-Host = {conf_mqtt['broker_address']}")
-    #print(f"MQTT-Topic = {conf_mqtt['mqtt_topic_prefix']}")
-    #print(f"MQTT-Port = {conf_mqtt['broker_port']}")
-    #print(f"MQTT-Alias = {conf_mqtt['mqtt_alias']}")
+    print(f"MQTT-Host = {conf_mqtt['broker_address']}")
+    print(f"MQTT-Topic = {conf_mqtt['mqtt_topic_prefix']}")
+    print(f"MQTT-Port = {conf_mqtt['broker_port']}")
+    print(f"MQTT-Alias = {conf_mqtt['mqtt_alias']}")
 else:
     print(f'config.ini is missing. Please add a config.ini!! Default values are set')    
 
@@ -99,13 +105,6 @@ def on_message(client, userdata, message):
     print("message topic="      + str(message.topic))
     print("message qos="        + str(message.qos))
     print("message retain flag=" + str(message.retain))
-
-client = mqtt.Client( "mqttclient" )
-print( "connecting to broker" )
-client.tls_set(CA_crt, client_crt, client_key, tls_version=ssl.PROTOCOL_TLSv1_2)
-client.tls_insecure_set(False)
-client.connect( broker_address, broker_port, 60 )
-client.loop_start()
 
 ######################################################################################################################
 c = 0 # counter for everlasting loop
@@ -142,12 +141,12 @@ while c < 1:
         print (f" ")
     ######################################################################################################################
     uname = platform.uname()
-    rev = "20230112.234800"
+    rev = "20231401.235200"
 
     # declaration
     if len(mqtt_alias) == 0:
         mqtt_alias=uname.node
-    mqtt_topic = mqtt_topic_prefix + uname.system + "/" + mqtt_alias + "/" 
+    mqtt_topic = mqtt_topic_prefix + uname.system + "/" + mqtt_alias  
     global jsondata
     jsondata = ""
 
@@ -354,15 +353,21 @@ while c < 1:
     #  port=mqtt_broker_port, client_id="", keepalive=60, will=None, auth=None, tls=None,
     #  protocol=mqtt.MQTTv311, transport="tcp")
 
+    client = mqtt.Client( "mqttclient" )
+    print( "connecting to broker" )
+    client.tls_set(CA_crt, client_crt, client_key, tls_version=ssl.PROTOCOL_TLSv1_2)
+    client.tls_insecure_set(False)
+    #client.will_set('last will')
+    client.connect( broker_address, broker_port, 60 )
+    client.loop_start()
     print( "Subscribing to topic", mqtt_topic )
     #on_message.retain=True
     client.on_message=on_message
     client.subscribe( mqtt_topic )
-
-    #for i in range( 1, 2 ):
-        #print( jsondata , mqtt_topic )
-    client.publish( mqtt_topic, jsondata, 0, True )
-    time.sleep( 1 )
+    for i in range( 1, 2 ):
+        client.publish(mqtt_topic, jsondata, 0, True )
+        time.sleep( 1 )
+    client.loop_stop()       
     if runAsService == 'True' or runAsService == 'true':
         c = 0
         print (f"Counter = {c}, runAsService = {runAsService}")
@@ -371,9 +376,6 @@ while c < 1:
             time.sleep( 1 )
     else:
         c += 1
-        time.sleep( 1 )    
-
-client.loop_stop()
 
 print( "Goodbye!" )
 
