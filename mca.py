@@ -15,7 +15,7 @@
 # arguments: 
 #  noUser           = no user will be determind. On Synology in taskplaner it doesn't work
 #  dl=true/false    = no download of current version from github. overrides config!
-
+rev             = "20230115.002500"
 mqtt_alias      = ""
 download        = True
 noUser          = False
@@ -125,7 +125,7 @@ while c < 1:
     runAsService        = conf_gen['runAsService']
     loopDuration        = int(conf_gen['loopDuration'])
 
-    if download == True:
+    if download == "True" or download == "true":
         print (f"Download latest version from {url}.....")
         MANAGER = enlighten.get_manager()
         r = requests.get(url, stream = True)
@@ -141,7 +141,6 @@ while c < 1:
         print (f" ")
     ######################################################################################################################
     uname = platform.uname()
-    rev = "20231401.235200"
 
     # declaration
     if len(mqtt_alias) == 0:
