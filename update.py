@@ -30,7 +30,7 @@ if debug:
     #sys.argv.append('download=Frue')
     sys.argv.append('runAsService=True')
     #sys.argv.append('winService=MCA-Computer-Agent')
-    #sys.argv.append('loop=20')
+    sys.argv.append('loop=20')
     #sys.argv.append('runType=winService')
     #sys.argv.append('url=http://irgendwo.com')
     #sys.argv.append('fname=c:\services\mca\mca.exe')
@@ -130,7 +130,7 @@ while counter < 1:
         if len(sys.argv) > 1:
             for cc in range(1, len(sys.argv)):
                 winService      = get_parameter(winService      , sys.argv[cc], 'winService',"")
-                download        = get_parameter(winService      , sys.argv[cc], 'download',"")
+                download        = get_parameter(download        , sys.argv[cc], 'download',"")
                 url             = get_parameter(url             , sys.argv[cc], 'url',"")                
                 runType         = get_parameter(runType         , sys.argv[cc], 'runType',"none,winService,winExe,python")
                 fname           = get_parameter(fname           , sys.argv[cc], 'fname',"")
@@ -170,6 +170,7 @@ while counter < 1:
         sleep(1)
         if l_result == 0:
             writeIniOption(config_file,'DOWNLOAD','download', 'False')
+        else:    
             print("Somthing went wrong during update. Update option is still active!") 
             l_result = 0
 
@@ -192,7 +193,7 @@ while counter < 1:
             case other:
                 print(f"No or wrong restart option given!")   
     else:
-        print("No update is requested (config.ini: dowmload = false). Waiting a while and check again")
+        print("No update is requested (config.ini: download = false). Waiting a while and check again")
         l_result = 0
     if l_result == 0:
         print("Update process has ended....")
@@ -204,4 +205,8 @@ while counter < 1:
         print (f"Waiting for {loopUpdate} seconds......")
         for i in tqdm(range(int(loopUpdate))):
             sleep( 1 )
+    #exit("Update process has ended....")
+
+
+
 
