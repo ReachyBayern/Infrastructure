@@ -5,17 +5,12 @@
 #                                                                                                                    #
 #  This is the first part to bring data into SnipeIT without direct connection to that system                        #
 ######################################################################################################################
-# Download current version with Windows: curl -o C:\Skripte\mca2.py https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py
-# Download current version with linux: wget -O /path/mca2.py https://raw.githubusercontent.com/ReachyBayern/MCA/main/mca.py  
-# windows task planer action with minimized window:
-#  program: cmd
-#  argumnents: /c start /min C:\Users\info\AppData\Local\Microsoft\WindowsApps\python.exe C:\Users\path\mca.py
-#  execute in: C:\Users\path\
 #
 # arguments: 
 #  noUser           = no user will be determind. On Synology in taskplaner it doesn't work
 #  dl=true/false    = no download of current version from github. overrides config!
-rev             = "20230115.002500"
+#  update           = do an update
+rev             = "20230116.195100"
 mqtt_alias      = ""
 download        = True
 noUser          = False
@@ -26,6 +21,7 @@ import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import sys
 import time
+import string
 import datetime
 import psutil
 import platform
@@ -40,55 +36,26 @@ from pathlib import Path
 import configparser
 from tqdm import tqdm
 #from config import *
+
 folder = os.getcwd()
 uname = platform.uname()
-print(f"Current Path = {folder}")
-# read config if file exists
+
+# get current os and set correct path
 if uname.system == 'Windows':
     config_file = Path(folder  + "\config.ini") 
 else:
     config_file = Path(folder  + "/config.ini") # linux needs "/" and Synology needs complete path!    
 
-#config_file = "/volume1/SmartHome/Tools/Enpoint-Communication-Agent/config.ini" # linux needs "/" and Synology needs complete path!
-
-if config_file.is_file():
-    config = configparser.ConfigParser()		
-    config.read(config_file)
-    conf_mqtt           = config['MQTT']
-    conf_ssl            = config['SSL']
-    conf_dl             = config['DOWNLOAD']
-    conf_gen            = config['GENERAL']
-
-    #[MQTT]
-    broker_address      = conf_mqtt['broker_address']
-    broker_port         = int(conf_mqtt['broker_port'])
-    mqtt_topic_prefix   = conf_mqtt['mqtt_topic_prefix']
-    mqtt_alias          = conf_mqtt['mqtt_alias']
-    #[SSL] 
-    CA_crt              = conf_ssl['CA_crt']
-    client_crt          = conf_ssl['client_crt']
-    client_key          = conf_ssl['client_key']
-    #[DOWNLOAD]
-    url                 = conf_dl['url']
-    fname               = conf_dl['fname']
-    download            = conf_dl['download']
-    #[GENERAL]
-    runAsService        = conf_gen['runAsService']
-    loopDuration        = int(conf_gen['loopDuration'])
-       
-    print(f"MQTT-Host = {conf_mqtt['broker_address']}")
-    print(f"MQTT-Topic = {conf_mqtt['mqtt_topic_prefix']}")
-    print(f"MQTT-Port = {conf_mqtt['broker_port']}")
-    print(f"MQTT-Alias = {conf_mqtt['mqtt_alias']}")
-else:
-    print(f'config.ini is missing. Please add a config.ini!! Default values are set')    
+# read config if file exists
+from lib_writeInifile import *
+from lib_readInifile import *
 
 for eachArg in sys.argv:  
-    if eachArg == 'dl=true' or eachArg == 'True':
+    if eachArg.lower == 'dl=true':
         download = True
-    if eachArg == 'dl=false' or eachArg == 'False':
+    if eachArg.lower == 'dl=false': 
         download = False     
-    if eachArg == 'nouser' or eachArg == 'noUser':   
+    if eachArg.lower == 'nouser':   
         noUser = True
 
 if noUser == False:
@@ -125,7 +92,7 @@ while c < 1:
     runAsService        = conf_gen['runAsService']
     loopDuration        = int(conf_gen['loopDuration'])
 
-    if download == "True" or download == "true":
+    if ( download.lower == "true" ) and ( runAsService.lower == "python" or runAsService.lower == "none"):
         print (f"Download latest version from {url}.....")
         MANAGER = enlighten.get_manager()
         r = requests.get(url, stream = True)
