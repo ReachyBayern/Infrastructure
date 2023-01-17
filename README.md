@@ -4,3 +4,5 @@ for inventory purposes to a asset management system. But not directly. The idea 
 a direct connection to the productiv database. The next step is to have a broker script (internally), which read the information from the MQTT-broker.
 This mca script runs on Windows and on linux machines.
 The broker script will be the next step. coming soon....
+
+ATTENTION: Still in ALPHA-Phase and still in development!
